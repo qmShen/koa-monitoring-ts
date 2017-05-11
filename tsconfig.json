@@ -1,0 +1,22 @@
+{
+    "compilerOptions": {
+        "target": "es6",
+        "outDir": "dist",
+        "module": "commonjs",
+        "sourceMap": false,
+        "preserveConstEnums": true,
+        "noUnusedLocals": true,
+        "experimentalDecorators": true,
+        "rootDir": ".",
+        "declaration": false,
+        "baseUrl": ".",
+        "paths": {
+            "src":["./src"]
+        }
+    },
+    "include":[
+        "src/**/*.ts",
+        "test/**/*.ts"
+    ]
+
+}
