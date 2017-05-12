@@ -16,3 +16,9 @@ console.log('tt');
 
 // }, 2000);
 // console.log('tt2');
+
+let arr = [1,23,4,];
+console.log('arr',arr.shift());
+console.log('arr',arr.shift());
+console.log('arr',arr.shift());
+console.log('arr',arr.shift());

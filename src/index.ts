@@ -41,6 +41,7 @@ const gatherOsMetrics = (io, span) => {
     mean: 0,
     timestamp: Date.now()
   }
+  
 
   const sendMetrics = (span) => {
     num += 1;
@@ -72,12 +73,11 @@ const gatherOsMetrics = (io, span) => {
 
     if (span.os.length >= span.retention) span.os.shift()
     if (span.responses[0] && span.responses.length > span.retention) span.responses.shift()
-
+    
+    
     sendMetrics(span)
   })
 }
-
-const encoding = { encoding: 'utf8' }
 
 const middlewareWrapper = (app, config) => {
   if (!app.listen) {
@@ -87,7 +87,7 @@ const middlewareWrapper = (app, config) => {
   Object.assign(defaultConfig, config)
   config = defaultConfig
   const htmlFilePath = path.join(__dirname, 'index.html')
-  const indexHtml = fs.readFileSync(htmlFilePath, encoding)
+  const indexHtml = fs.readFileSync(htmlFilePath,  { encoding: 'utf8' })
   const template = handlebars.compile(indexHtml)
 
   io.on('connection', (socket) => {

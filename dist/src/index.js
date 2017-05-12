@@ -69,7 +69,6 @@ const gatherOsMetrics = (io, span) => {
         sendMetrics(span);
     });
 };
-const encoding = { encoding: 'utf8' };
 const middlewareWrapper = (app, config) => {
     if (!app.listen) {
         throw new Error('First parameter must be an http server');
@@ -78,7 +77,7 @@ const middlewareWrapper = (app, config) => {
     Object.assign(defaultConfig, config);
     config = defaultConfig;
     const htmlFilePath = path.join(__dirname, 'index.html');
-    const indexHtml = fs.readFileSync(htmlFilePath, encoding);
+    const indexHtml = fs.readFileSync(htmlFilePath, { encoding: 'utf8' });
     const template = handlebars.compile(indexHtml);
     io.on('connection', (socket) => {
         socket.emit('start', config.spans);
