@@ -1,18 +1,15 @@
 'use strict';
-const fs = require('mz/fs');
-const path = require('path');
-const os = require('os');
-const pidusage = require('pidusage');
-const handlebars = require('handlebars');
+Object.defineProperty(exports, "__esModule", { value: true });
+const fs = require("mz/fs");
+const path = require("path");
+const os = require("os");
+const pidusage = require("pidusage");
+const handlebars = require("handlebars");
+const socket = require("socket.io");
 let io;
-let appName;
-try {
-    appName = require('../../package.json').name;
-}
-catch (err) { }
 const defaultConfig = {
     path: '/status',
-    title: appName,
+    title: 'monitoring',
     spans: [{
             interval: 1,
             retention: 60
@@ -38,12 +35,13 @@ const gatherOsMetrics = (io, span) => {
         timestamp: Date.now()
     };
     const sendMetrics = (span) => {
-        io.emit('stats', {
+        let emitMsg = {
             os: span.os[span.os.length - 2],
             responses: span.responses[span.responses.length - 2],
             interval: span.interval,
             retention: span.retention
-        });
+        };
+        io.emit('stats', emitMsg);
     };
     pidusage.stat(process.pid, (err, stat) => {
         if (err) {
@@ -68,7 +66,7 @@ const middlewareWrapper = (app, config) => {
     if (!app.listen) {
         throw new Error('First parameter must be an http server');
     }
-    io = require('socket.io')(app);
+    io = socket(app);
     Object.assign(defaultConfig, config);
     config = defaultConfig;
     const htmlFilePath = path.join(__dirname, 'index.html');

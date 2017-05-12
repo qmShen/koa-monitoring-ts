@@ -1,17 +1,19 @@
 'use strict'
 
-
-import * as fs from "mz/fs"
-import * as path from "path"
-import * as os from "os"
-import * as pidusage from "pidusage"
-import * as handlebars from "handlebars"
-import * as socket from "socket.io" 
+const fs = require('mz/fs')
+const path = require('path')
+const os = require('os')
+const pidusage = require('pidusage')
+const handlebars = require('handlebars')
 let io
+let appName
+try {
+  appName = require('../../package.json').name
+} catch (err) {}
 
 const defaultConfig = {
   path: '/status',
-  title: 'monitoring',
+  title: appName,
   spans: [{
     interval: 1,
     retention: 60
@@ -40,13 +42,12 @@ const gatherOsMetrics = (io, span) => {
   }
 
   const sendMetrics = (span) => {
-    let emitMsg = {
+    io.emit('stats', {
       os: span.os[span.os.length - 2],
       responses: span.responses[span.responses.length - 2],
       interval: span.interval,
       retention: span.retention
-    }
-    io.emit('stats', emitMsg);
+    })
   }
 
   pidusage.stat(process.pid, (err, stat) => {
@@ -74,7 +75,7 @@ const middlewareWrapper = (app, config) => {
   if (!app.listen) {
     throw new Error('First parameter must be an http server')
   }
-  io = socket(app)
+  io = require('socket.io')(app)
   Object.assign(defaultConfig, config)
   config = defaultConfig
   const htmlFilePath = path.join(__dirname, 'index.html')

@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const http = require("http");
-const monitor = require("../index.js");
+const monitor = require("../index");
 const koa = require("koa");
 const Router = require("koa-router");
 const app = new koa();
@@ -17,7 +17,6 @@ const server = http.createServer(app.callback());
 app.use(monitor(server, { path: '/status', statusHtmlPage: 'index.html' }));
 let router = new Router()
     .get('/', (ctx, next) => __awaiter(this, void 0, void 0, function* () {
-    console.log('root./');
     ctx.body = 'Hello World3';
 }));
 app.use(router.routes());
