@@ -6,9 +6,7 @@ const os = require("os");
 const pidusage = require("pidusage");
 const handlebars = require("handlebars");
 const socket = require("socket.io");
-const jsonfile = require("jsonfile");
 let io;
-let num = 0;
 const defaultConfig = {
     path: '/status',
     title: 'monitoring',
@@ -37,7 +35,6 @@ const gatherOsMetrics = (io, span) => {
         timestamp: Date.now()
     };
     const sendMetrics = (span) => {
-        num += 1;
         let emitMsg = {
             os: span.os[span.os.length - 2],
             responses: span.responses[span.responses.length - 2],
@@ -45,11 +42,6 @@ const gatherOsMetrics = (io, span) => {
             retention: span.retention
         };
         io.emit('stats', emitMsg);
-        let file = "output/data" + "_" + num + ".json";
-        console.log('number', num);
-        jsonfile.writeFile(file, emitMsg, function (err) {
-            // console.error(err)
-        });
     };
     pidusage.stat(process.pid, (err, stat) => {
         if (err) {
@@ -86,11 +78,9 @@ const middlewareWrapper = (app, config) => {
             socket.emit('start', config.spans);
         });
     });
-    config.spans.forEach((span, i) => {
-        console.log('123', i);
+    config.spans.forEach((span) => {
         span.os = [];
         span.responses = [];
-        //Collection the information, every span.interval seconds
         const interval = setInterval(() => gatherOsMetrics(io, span), span.interval * 1000);
         interval.unref();
     });

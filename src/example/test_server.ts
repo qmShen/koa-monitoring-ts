@@ -6,7 +6,6 @@ import * as Router from 'koa-router'
 const app = new koa()
 const server = http.createServer(app.callback())
 app.use(monitor(server, { path: '/status', statusHtmlPage: 'index.html' }))
-
 let router = new Router()
     .get('/', async (ctx, next) => {
         ctx.body = 'Hello World3'

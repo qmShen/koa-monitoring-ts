@@ -6,11 +6,8 @@ import * as path from "path"
 import * as os from "os"
 import * as pidusage from "pidusage"
 import * as handlebars from "handlebars"
-import * as socket from "socket.io"
-
-import * as jsonfile from "jsonfile"
+import * as socket from "socket.io" 
 let io
-let num: number = 0;
 
 const defaultConfig = {
   path: '/status',
@@ -43,7 +40,6 @@ const gatherOsMetrics = (io, span) => {
   }
 
   const sendMetrics = (span) => {
-    num += 1;
     let emitMsg = {
       os: span.os[span.os.length - 2],
       responses: span.responses[span.responses.length - 2],
@@ -51,11 +47,8 @@ const gatherOsMetrics = (io, span) => {
       retention: span.retention
     }
     io.emit('stats', emitMsg);
-    let file: string = "output/data" + "_" + num + ".json"
-    console.log('number', num);
-    jsonfile.writeFile(file, emitMsg, function (err) {
-      // console.error(err)
-    })
+
+    
   }
 
   pidusage.stat(process.pid, (err, stat) => {
@@ -77,7 +70,7 @@ const gatherOsMetrics = (io, span) => {
   })
 }
 
-const encoding = { encoding: 'utf8' }
+const encoding = {encoding: 'utf8'}
 
 const middlewareWrapper = (app, config) => {
   if (!app.listen) {
@@ -97,17 +90,15 @@ const middlewareWrapper = (app, config) => {
     })
   })
 
-  config.spans.forEach((span, i) => {
-    console.log('123', i);
+  config.spans.forEach((span) => {
     span.os = []
     span.responses = []
-    //Collection the information, every span.interval seconds
     const interval = setInterval(() => gatherOsMetrics(io, span), span.interval * 1000)
     interval.unref()
   })
   // console.log(config)
 
-  return function* (next) {
+  return function*(next) {
     const startTime = process.hrtime()
 
     if (this.path === config.path) {
@@ -129,7 +120,7 @@ const middlewareWrapper = (app, config) => {
       record.call(this)
     }
 
-    function record(timeout) {
+    function record (timeout) {
       const diff = process.hrtime(startTime)
       const responseTime = diff[0] * 1e3 + diff[1] * 1e-6
       // if timeout, set response code to 5xx.
