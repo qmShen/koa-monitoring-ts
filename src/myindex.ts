@@ -2,15 +2,9 @@
 import * as pidusage from "pidusage"
 import * as jsonfile from "jsonfile"
 
-export let CONFIG = {
-    responses: [],
-    monitorLength: 5,
-    timeout: 2,
-    timeRange: 1
-}
 export let G = {
     timeout: 2,
-    monitorLength: 60,
+    monitorLength: 20,
     spans: [{
         responses: [],
         timeRange: 1
@@ -50,7 +44,7 @@ function lastElement(array) {
 function collectUsage(span) {
     pidusage.stat(process.pid, (err, stat) => {
         // remove the first element of the response list if the length longer than monitorLength
-        if (span.responses.length >= span.monitorLength) span.responses.shift();
+        if (span.responses.length >= G.monitorLength / span.timeRange) span.responses.shift();
 
         // Collect the memory, cpu, timestamp; 
         // Init the response count, response time and timerange  
@@ -66,37 +60,51 @@ function collectUsage(span) {
     })
 }
 
-function responseCount(lastResponse) {
-    if (!lastResponse) return;
-    lastResponse.count++;
-    let meanTime: number = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (G.timeout * 1000 - meanTime) / lastResponse.count;
+function responseCount(lastResponses) {
+    lastResponses.forEach(lastResponse => {
+        if (!lastResponse) return;
+        lastResponse.count++;
+        let meanTime: number = lastResponse.responseTime;
+        lastResponse.responseTime = meanTime + (G.timeout * 1000 - meanTime) / lastResponse.count;
+    })
+
 }
 
-function responseTime(startTime, lastResponse) {
-    if (!lastResponse) return;
-    let responseTime: number = process.hrtime(startTime);
-    responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
-    let meanTime: number = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (responseTime - G.timeout * 1000) / lastResponse.count;
+function responseTime(startTime, lastResponses) {
+    lastResponses.forEach(lastResponse => {
+        if (!lastResponse) return;
+        let responseTime: number = process.hrtime(startTime);
+        responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
+        let meanTime: number = lastResponse.responseTime;
+        lastResponse.responseTime = meanTime + (responseTime - G.timeout * 1000) / lastResponse.count;
+    })
+
 }
 
 function startMonitoring() {
-    const interval: any = setInterval(() => collectUsage(CONFIG), CONFIG.timeRange * 1000);
-    interval.unref()
+    G.spans.forEach((span) => {
+        const interval: any = setInterval(() => collectUsage(span), span.timeRange * 1000);
+        interval.unref()
+    })
+
 }
 
 function monitoringMiddlewareWrapper(app, config) {
     startMonitoring();
     return async function monitoring(ctx, next) {
         const startTime = process.hrtime();
-        const lastResponse = lastElement(CONFIG.responses);
-        responseCount(lastResponse);
+        let lastResponses = [];
+        G.spans.forEach(function (span) {
+            lastResponses.push(lastElement(span.responses));
+        })
+
+        responseCount(lastResponses);
         await next();
-        responseTime(startTime, lastResponse);
+        responseTime(startTime, lastResponses);
 
         let file: string = 'output/data.json'
-        jsonfile.writeFile(file, CONFIG, function (err) {
+        console.log('test');
+        jsonfile.writeFile(file, G, function (err) {
         })
     }
 }

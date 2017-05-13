@@ -10,15 +10,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 const pidusage = require("pidusage");
 const jsonfile = require("jsonfile");
-exports.CONFIG = {
-    responses: [],
-    monitorLength: 5,
-    timeout: 2,
-    timeRange: 1
-};
 exports.G = {
     timeout: 2,
-    monitorLength: 60,
+    monitorLength: 20,
     spans: [{
             responses: [],
             timeRange: 1
@@ -37,7 +31,7 @@ function lastElement(array) {
 function collectUsage(span) {
     pidusage.stat(process.pid, (err, stat) => {
         // remove the first element of the response list if the length longer than monitorLength
-        if (span.responses.length >= span.monitorLength)
+        if (span.responses.length >= exports.G.monitorLength / span.timeRange)
             span.responses.shift();
         // Collect the memory, cpu, timestamp; 
         // Init the response count, response time and timerange  
@@ -52,36 +46,46 @@ function collectUsage(span) {
         span.responses.push(statRecord);
     });
 }
-function responseCount(lastResponse) {
-    if (!lastResponse)
-        return;
-    lastResponse.count++;
-    let meanTime = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (exports.G.timeout * 1000 - meanTime) / lastResponse.count;
+function responseCount(lastResponses) {
+    lastResponses.forEach(lastResponse => {
+        if (!lastResponse)
+            return;
+        lastResponse.count++;
+        let meanTime = lastResponse.responseTime;
+        lastResponse.responseTime = meanTime + (exports.G.timeout * 1000 - meanTime) / lastResponse.count;
+    });
 }
-function responseTime(startTime, lastResponse) {
-    if (!lastResponse)
-        return;
-    let responseTime = process.hrtime(startTime);
-    responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
-    let meanTime = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (responseTime - exports.G.timeout * 1000) / lastResponse.count;
+function responseTime(startTime, lastResponses) {
+    lastResponses.forEach(lastResponse => {
+        if (!lastResponse)
+            return;
+        let responseTime = process.hrtime(startTime);
+        responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
+        let meanTime = lastResponse.responseTime;
+        lastResponse.responseTime = meanTime + (responseTime - exports.G.timeout * 1000) / lastResponse.count;
+    });
 }
 function startMonitoring() {
-    const interval = setInterval(() => collectUsage(exports.CONFIG), exports.CONFIG.timeRange * 1000);
-    interval.unref();
+    exports.G.spans.forEach((span) => {
+        const interval = setInterval(() => collectUsage(span), span.timeRange * 1000);
+        interval.unref();
+    });
 }
 function monitoringMiddlewareWrapper(app, config) {
     startMonitoring();
     return function monitoring(ctx, next) {
         return __awaiter(this, void 0, void 0, function* () {
             const startTime = process.hrtime();
-            const lastResponse = lastElement(exports.CONFIG.responses);
-            responseCount(lastResponse);
+            let lastResponses = [];
+            exports.G.spans.forEach(function (span) {
+                lastResponses.push(lastElement(span.responses));
+            });
+            responseCount(lastResponses);
             yield next();
-            responseTime(startTime, lastResponse);
+            responseTime(startTime, lastResponses);
             let file = 'output/data.json';
-            jsonfile.writeFile(file, exports.CONFIG, function (err) {
+            console.log('test');
+            jsonfile.writeFile(file, exports.G, function (err) {
             });
         });
     };
