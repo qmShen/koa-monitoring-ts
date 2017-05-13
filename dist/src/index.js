@@ -6,7 +6,6 @@ const os = require("os");
 const pidusage = require("pidusage");
 const handlebars = require("handlebars");
 const socket = require("socket.io");
-const jsonfile = require("jsonfile");
 let io;
 let num = 0;
 const defaultConfig = {
@@ -44,12 +43,11 @@ const gatherOsMetrics = (io, span) => {
             interval: span.interval,
             retention: span.retention
         };
+        // console.log("span", span.os.length);
         io.emit('stats', emitMsg);
         let file = "output/data" + "_" + num + ".json";
-        console.log('number', num);
-        jsonfile.writeFile(file, emitMsg, function (err) {
-            // console.error(err)
-        });
+        // jsonfile.writeFile(file, defaultConfig, function (err) {
+        // })
     };
     pidusage.stat(process.pid, (err, stat) => {
         if (err) {
@@ -86,7 +84,6 @@ const middlewareWrapper = (app, config) => {
         });
     });
     config.spans.forEach((span, i) => {
-        console.log('123', i);
         span.os = [];
         span.responses = [];
         //Collection the information, every span.interval seconds
@@ -96,12 +93,14 @@ const middlewareWrapper = (app, config) => {
     // console.log(config)
     return function* (next) {
         const startTime = process.hrtime();
+        console.log('this', this, next);
         if (this.path === config.path) {
             this.body = template(config);
         }
         else if (this.url === `${config.path}/koa-monitor-frontend.js`) {
             const pathToJs = path.join(__dirname, 'koa-monitor-frontend.js');
-            this.body = yield fs.readFile(pathToJs, encoding);
+            console.log('if', __dirname);
+            this.body = yield fs.readFile(pathToJs, { encoding: 'utf8' });
         }
         else {
             let timer;
@@ -110,6 +109,7 @@ const middlewareWrapper = (app, config) => {
                     record.call(this, true);
                 }, config.requestTimeout);
             }
+            console.log('next else', next);
             yield next;
             timer && clearTimeout(timer);
             record.call(this);

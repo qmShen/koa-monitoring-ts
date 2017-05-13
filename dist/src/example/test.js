@@ -1,24 +1,24 @@
-// let c1 = { 'id': 1, 'school': 'nyu' }
-// let c2 = { 'name': 'c2', 'school': 'scu' }
-// Object.assign(c1, c2)
-// console.log('c1mc2', c1, c2)
-const interval = setInterval(
-    () => {
-        console.log('t');
-    },
-    0.5 * 1000);
+// function f1(callback) {
+//     setTimeout(function () {
 
-interval.unref();
+//         callback();
+//     }, 1000);
+//     console.log('init')
+// }
+// function f2(){
+//     console.log('done');
+// }
+// f1(f2)
 
-console.log('tt');
-// setTimeout(function () {
-//     console.log('stop');
-
-// }, 2000);
-// console.log('tt2');
-
-let arr = [1,23,4,];
-console.log('arr',arr.shift());
-console.log('arr',arr.shift());
-console.log('arr',arr.shift());
-console.log('arr',arr.shift());
+function f1() {
+    let p = new Promise();
+    setTimeout(function () {
+        p.resolve();
+    }, 1000);
+    return p;
+}
+// function f2(){
+//     console.log('done');
+// }
+// f1(f2)
+f1()

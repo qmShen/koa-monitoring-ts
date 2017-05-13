@@ -47,10 +47,10 @@ function lastElement(array) {
     return (!array || !array.length) ? null : array[array.length - 1];
 }
 
-function collectUsage() {
+function collectUsage(span) {
     pidusage.stat(process.pid, (err, stat) => {
         // remove the first element of the response list if the length longer than monitorLength
-        if (CONFIG.responses.length >= CONFIG.monitorLength) CONFIG.responses.shift();
+        if (span.responses.length >= span.monitorLength) span.responses.shift();
 
         // Collect the memory, cpu, timestamp; 
         // Init the response count, response time and timerange  
@@ -60,9 +60,9 @@ function collectUsage() {
             timestamp: Date.now(),
             count: 0,
             responseTime: 0,
-            timeRange: CONFIG.timeRange
+            timeRange: span.timeRange
         };
-        CONFIG.responses.push(statRecord)
+        span.responses.push(statRecord)
     })
 }
 
@@ -70,7 +70,7 @@ function responseCount(lastResponse) {
     if (!lastResponse) return;
     lastResponse.count++;
     let meanTime: number = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (CONFIG.timeout * 1000 - meanTime) / lastResponse.count;
+    lastResponse.responseTime = meanTime + (G.timeout * 1000 - meanTime) / lastResponse.count;
 }
 
 function responseTime(startTime, lastResponse) {
@@ -78,11 +78,11 @@ function responseTime(startTime, lastResponse) {
     let responseTime: number = process.hrtime(startTime);
     responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
     let meanTime: number = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (responseTime - CONFIG.timeout * 1000) / lastResponse.count;
+    lastResponse.responseTime = meanTime + (responseTime - G.timeout * 1000) / lastResponse.count;
 }
 
 function startMonitoring() {
-    const interval: any = setInterval(() => collectUsage(), CONFIG.timeRange * 1000);
+    const interval: any = setInterval(() => collectUsage(CONFIG), CONFIG.timeRange * 1000);
     interval.unref()
 }
 

@@ -34,11 +34,11 @@ exports.G = {
 function lastElement(array) {
     return (!array || !array.length) ? null : array[array.length - 1];
 }
-function collectUsage() {
+function collectUsage(span) {
     pidusage.stat(process.pid, (err, stat) => {
         // remove the first element of the response list if the length longer than monitorLength
-        if (exports.CONFIG.responses.length >= exports.CONFIG.monitorLength)
-            exports.CONFIG.responses.shift();
+        if (span.responses.length >= span.monitorLength)
+            span.responses.shift();
         // Collect the memory, cpu, timestamp; 
         // Init the response count, response time and timerange  
         const statRecord = {
@@ -47,9 +47,9 @@ function collectUsage() {
             timestamp: Date.now(),
             count: 0,
             responseTime: 0,
-            timeRange: exports.CONFIG.timeRange
+            timeRange: span.timeRange
         };
-        exports.CONFIG.responses.push(statRecord);
+        span.responses.push(statRecord);
     });
 }
 function responseCount(lastResponse) {
@@ -57,7 +57,7 @@ function responseCount(lastResponse) {
         return;
     lastResponse.count++;
     let meanTime = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (exports.CONFIG.timeout * 1000 - meanTime) / lastResponse.count;
+    lastResponse.responseTime = meanTime + (exports.G.timeout * 1000 - meanTime) / lastResponse.count;
 }
 function responseTime(startTime, lastResponse) {
     if (!lastResponse)
@@ -65,10 +65,10 @@ function responseTime(startTime, lastResponse) {
     let responseTime = process.hrtime(startTime);
     responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
     let meanTime = lastResponse.responseTime;
-    lastResponse.responseTime = meanTime + (responseTime - exports.CONFIG.timeout * 1000) / lastResponse.count;
+    lastResponse.responseTime = meanTime + (responseTime - exports.G.timeout * 1000) / lastResponse.count;
 }
 function startMonitoring() {
-    const interval = setInterval(() => collectUsage(), exports.CONFIG.timeRange * 1000);
+    const interval = setInterval(() => collectUsage(exports.CONFIG), exports.CONFIG.timeRange * 1000);
     interval.unref();
 }
 function monitoringMiddlewareWrapper(app, config) {
