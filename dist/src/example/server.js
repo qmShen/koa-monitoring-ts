@@ -8,11 +8,11 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const myindex_1 = require("../myindex");
+const index_1 = require("../index");
 const koa = require("koa");
 const Router = require("koa-router");
 const app = new koa();
-app.use(myindex_1.default(app));
+app.use(index_1.default(app));
 let router = new Router()
     .get('/', (ctx, next) => __awaiter(this, void 0, void 0, function* () {
     ctx.body = 'Hello World4';

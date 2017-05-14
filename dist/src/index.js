@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const pidusage = require("pidusage");
-exports.G = {
+exports.GLOBALCONFIG = {
     timeout: 2,
     monitorLength: 20,
     spans: [{
@@ -30,7 +30,7 @@ function lastElement(array) {
 function collectUsage(span) {
     pidusage.stat(process.pid, (err, stat) => {
         // remove the first element of the response list if the length longer than monitorLength
-        if (span.responses.length >= exports.G.monitorLength / span.timeRange)
+        if (span.responses.length >= exports.GLOBALCONFIG.monitorLength / span.timeRange)
             span.responses.shift();
         // Collect the memory, cpu, timestamp; 
         // Init the response count, response time and timerange  
@@ -51,7 +51,7 @@ function responseCount(lastResponses) {
             return;
         lastResponse.count++;
         let meanTime = lastResponse.responseTime;
-        lastResponse.responseTime = meanTime + (exports.G.timeout * 1000 - meanTime) / lastResponse.count;
+        lastResponse.responseTime = meanTime + (exports.GLOBALCONFIG.timeout * 1000 - meanTime) / lastResponse.count;
     });
 }
 function responseTime(startTime, lastResponses) {
@@ -61,11 +61,11 @@ function responseTime(startTime, lastResponses) {
         let responseTime = process.hrtime(startTime);
         responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
         let meanTime = lastResponse.responseTime;
-        lastResponse.responseTime = meanTime + (responseTime - exports.G.timeout * 1000) / lastResponse.count;
+        lastResponse.responseTime = meanTime + (responseTime - exports.GLOBALCONFIG.timeout * 1000) / lastResponse.count;
     });
 }
 function startMonitoring() {
-    exports.G.spans.forEach((span) => {
+    exports.GLOBALCONFIG.spans.forEach((span) => {
         const interval = setInterval(() => collectUsage(span), span.timeRange * 1000);
         interval.unref();
     });
@@ -76,16 +76,12 @@ function monitoringMiddlewareWrapper(app, config) {
         return __awaiter(this, void 0, void 0, function* () {
             const startTime = process.hrtime();
             let lastResponses = [];
-            exports.G.spans.forEach(function (span) {
+            exports.GLOBALCONFIG.spans.forEach(function (span) {
                 lastResponses.push(lastElement(span.responses));
             });
             responseCount(lastResponses);
             yield next();
             responseTime(startTime, lastResponses);
-            let file = 'output/data.json';
-            console.log('test');
-            jsonfile.writeFile(file, exports.G, function (err) {
-            });
         });
     };
 }

@@ -1,7 +1,7 @@
 'use strict'
 import * as pidusage from "pidusage"
 
-export let G = {
+export let GLOBALCONFIG = {
     timeout: 2,
     monitorLength: 20,
     spans: [{
@@ -43,12 +43,12 @@ function lastElement(array) {
 function collectUsage(span) {
     pidusage.stat(process.pid, (err, stat) => {
         // remove the first element of the response list if the length longer than monitorLength
-        if (span.responses.length >= G.monitorLength / span.timeRange) span.responses.shift();
+        if (span.responses.length >= GLOBALCONFIG.monitorLength / span.timeRange) span.responses.shift();
 
         // Collect the memory, cpu, timestamp; 
         // Init the response count, response time and timerange  
         const statRecord: statOption = {
-            memory: stat.memory / 1024 / 1024,
+            memory: stat.memory / 1024 / 1024, //Unit: M
             cpu: stat.cpu,
             timestamp: Date.now(),
             count: 0,
@@ -64,7 +64,7 @@ function responseCount(lastResponses) {
         if (!lastResponse) return;
         lastResponse.count++;
         let meanTime: number = lastResponse.responseTime;
-        lastResponse.responseTime = meanTime + (G.timeout * 1000 - meanTime) / lastResponse.count;
+        lastResponse.responseTime = meanTime + (GLOBALCONFIG.timeout * 1000 - meanTime) / lastResponse.count;
     })
 
 }
@@ -75,13 +75,13 @@ function responseTime(startTime, lastResponses) {
         let responseTime: number = process.hrtime(startTime);
         responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
         let meanTime: number = lastResponse.responseTime;
-        lastResponse.responseTime = meanTime + (responseTime - G.timeout * 1000) / lastResponse.count;
+        lastResponse.responseTime = meanTime + (responseTime - GLOBALCONFIG.timeout * 1000) / lastResponse.count;
     })
 
 }
 
 function startMonitoring() {
-    G.spans.forEach((span) => {
+    GLOBALCONFIG.spans.forEach((span) => {
         const interval: any = setInterval(() => collectUsage(span), span.timeRange * 1000);
         interval.unref()
     })
@@ -93,18 +93,12 @@ function monitoringMiddlewareWrapper(app, config) {
     return async function monitoring(ctx, next) {
         const startTime = process.hrtime();
         let lastResponses = [];
-        G.spans.forEach(function (span) {
+        GLOBALCONFIG.spans.forEach(function (span) {
             lastResponses.push(lastElement(span.responses));
         })
-
         responseCount(lastResponses);
         await next();
         responseTime(startTime, lastResponses);
-
-        let file: string = 'output/data.json'
-        console.log('test');
-        jsonfile.writeFile(file, G, function (err) {
-        })
     }
 }
 

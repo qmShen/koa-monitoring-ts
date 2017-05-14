@@ -1,5 +1,5 @@
 import * as http from 'http';
-import monitor from '../myindex'
+import monitor from '../index'
 import * as koa from "koa"
 import * as Router from 'koa-router'
 const app = new koa()
