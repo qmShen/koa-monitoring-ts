@@ -1,144 +1,92 @@
 'use strict';
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const fs = require("mz/fs");
-const path = require("path");
-const os = require("os");
 const pidusage = require("pidusage");
-const handlebars = require("handlebars");
-const socket = require("socket.io");
-let io;
-let num = 0;
-const defaultConfig = {
-    path: '/status',
-    title: 'monitoring',
+exports.G = {
+    timeout: 2,
+    monitorLength: 20,
     spans: [{
-            interval: 1,
-            retention: 60
+            responses: [],
+            timeRange: 1
         }, {
-            interval: 5,
-            retention: 60
+            responses: [],
+            timeRange: 5
         }, {
-            interval: 15,
-            retention: 60
+            responses: [],
+            timeRange: 10
         }]
 };
-const last = function (arr) {
-    return arr[arr.length - 1];
-};
-const gatherOsMetrics = (io, span) => {
-    const defaultResponse = {
-        '2': 0,
-        '3': 0,
-        '4': 0,
-        '5': 0,
-        count: 0,
-        mean: 0,
-        timestamp: Date.now()
-    };
-    const sendMetrics = (span) => {
-        num += 1;
-        let emitMsg = {
-            os: span.os[span.os.length - 2],
-            responses: span.responses[span.responses.length - 2],
-            interval: span.interval,
-            retention: span.retention
-        };
-        // console.log("span", span.os.length);
-        io.emit('stats', emitMsg);
-        let file = "output/data" + "_" + num + ".json";
-        // jsonfile.writeFile(file, defaultConfig, function (err) {
-        // })
-    };
+// Return the last element of an array, return null if bad input
+function lastElement(array) {
+    return (!array || !array.length) ? null : array[array.length - 1];
+}
+function collectUsage(span) {
     pidusage.stat(process.pid, (err, stat) => {
-        if (err) {
-            console.error(err);
-            return;
-        }
-        stat.memory = stat.memory / 1024 / 1024; // Convert from B to MB
-        stat.load = os.loadavg();
-        stat.timestamp = Date.now();
-        span.os.push(stat);
-        if (!span.responses[0] || last(span.responses).timestamp + (span.interval * 1000) < Date.now())
-            span.responses.push(defaultResponse);
-        if (span.os.length >= span.retention)
-            span.os.shift();
-        if (span.responses[0] && span.responses.length > span.retention)
+        // remove the first element of the response list if the length longer than monitorLength
+        if (span.responses.length >= exports.G.monitorLength / span.timeRange)
             span.responses.shift();
-        sendMetrics(span);
+        // Collect the memory, cpu, timestamp; 
+        // Init the response count, response time and timerange  
+        const statRecord = {
+            memory: stat.memory / 1024 / 1024,
+            cpu: stat.cpu,
+            timestamp: Date.now(),
+            count: 0,
+            responseTime: 0,
+            timeRange: span.timeRange
+        };
+        span.responses.push(statRecord);
     });
-};
-const middlewareWrapper = (app, config) => {
-    if (!app.listen) {
-        throw new Error('First parameter must be an http server');
-    }
-    io = socket(app);
-    Object.assign(defaultConfig, config);
-    config = defaultConfig;
-    const htmlFilePath = path.join(__dirname, 'index.html');
-    const indexHtml = fs.readFileSync(htmlFilePath, { encoding: 'utf8' });
-    const template = handlebars.compile(indexHtml);
-    io.on('connection', (socket) => {
-        socket.emit('start', config.spans);
-        socket.on('change', function () {
-            socket.emit('start', config.spans);
-        });
+}
+function responseCount(lastResponses) {
+    lastResponses.forEach(lastResponse => {
+        if (!lastResponse)
+            return;
+        lastResponse.count++;
+        let meanTime = lastResponse.responseTime;
+        lastResponse.responseTime = meanTime + (exports.G.timeout * 1000 - meanTime) / lastResponse.count;
     });
-    config.spans.forEach((span, i) => {
-        span.os = [];
-        span.responses = [];
-        //Collection the information, every span.interval seconds
-        const interval = setInterval(() => gatherOsMetrics(io, span), span.interval * 1000);
+}
+function responseTime(startTime, lastResponses) {
+    lastResponses.forEach(lastResponse => {
+        if (!lastResponse)
+            return;
+        let responseTime = process.hrtime(startTime);
+        responseTime = responseTime[0] * 10e3 + responseTime[1] * 10E-6;
+        let meanTime = lastResponse.responseTime;
+        lastResponse.responseTime = meanTime + (responseTime - exports.G.timeout * 1000) / lastResponse.count;
+    });
+}
+function startMonitoring() {
+    exports.G.spans.forEach((span) => {
+        const interval = setInterval(() => collectUsage(span), span.timeRange * 1000);
         interval.unref();
     });
-    // console.log(config)
-    return function* (next) {
-        const startTime = process.hrtime();
-        console.log('this', this, next);
-        if (this.path === config.path) {
-            this.body = template(config);
-        }
-        else if (this.url === `${config.path}/koa-monitor-frontend.js`) {
-            const pathToJs = path.join(__dirname, 'koa-monitor-frontend.js');
-            console.log('if', __dirname);
-            this.body = yield fs.readFile(pathToJs, { encoding: 'utf8' });
-        }
-        else {
-            let timer;
-            if (config.requestTimeout) {
-                timer = setTimeout(() => {
-                    record.call(this, true);
-                }, config.requestTimeout);
-            }
-            console.log('next else', next);
-            yield next;
-            timer && clearTimeout(timer);
-            record.call(this);
-        }
-        function record(timeout) {
-            const diff = process.hrtime(startTime);
-            const responseTime = diff[0] * 1e3 + diff[1] * 1e-6;
-            // if timeout, set response code to 5xx.
-            const category = timeout ? 5 : Math.floor(this.statusCode / 100);
-            config.spans.forEach((span) => {
-                const lastResponse = last(span.responses);
-                if (lastResponse && lastResponse.timestamp / 1000 + span.interval > Date.now() / 1000) {
-                    lastResponse[category]++;
-                    lastResponse.count++;
-                    lastResponse.mean = lastResponse.mean + ((responseTime - lastResponse.mean) / lastResponse.count);
-                }
-                else {
-                    span.responses.push({
-                        '2': category === 2 ? 1 : 0,
-                        '3': category === 3 ? 1 : 0,
-                        '4': category === 4 ? 1 : 0,
-                        '5': category === 5 ? 1 : 0,
-                        count: 1,
-                        mean: responseTime,
-                        timestamp: Date.now()
-                    });
-                }
+}
+function monitoringMiddlewareWrapper(app, config) {
+    startMonitoring();
+    return function monitoring(ctx, next) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const startTime = process.hrtime();
+            let lastResponses = [];
+            exports.G.spans.forEach(function (span) {
+                lastResponses.push(lastElement(span.responses));
             });
-        }
+            responseCount(lastResponses);
+            yield next();
+            responseTime(startTime, lastResponses);
+            let file = 'output/data.json';
+            console.log('test');
+            jsonfile.writeFile(file, exports.G, function (err) {
+            });
+        });
     };
-};
-module.exports = middlewareWrapper;
+}
+exports.default = monitoringMiddlewareWrapper;
